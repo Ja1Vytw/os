@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Ordens de Serviço</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .search-highlight { background-color: #f3f4f6; padding: 2px 4px; border-radius: 4px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-indigo-700 mb-2">Ordens de Serviço da Compuword</h1>
+            <p class="text-gray-600">Visualize e gerencie suas ordens de serviço de forma eficiente</p>
+        </header>
+        <!-- Filters Section -->
+        <form class="bg-white rounded-lg shadow-md p-6 mb-8" method="get">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Mês/Ano</label>
+                    <div class="flex gap-2">
+                        <select name="mes" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">Todos os meses</option>
+                            {% for m in range(1,13) %}
+                            <option value="{{'%02d' % m}}" {% if mes == '%02d' % m %}selected{% endif %}>{{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][m-1]}}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="ano" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">Todos os anos</option>
+                            {% for a in anos %}
+                            <option value="{{a}}" {% if ano == a %}selected{% endif %}>{{a}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                    <input type="text" name="cliente" value="{{cliente}}" placeholder="Buscar cliente..." class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Número OS</label>
+                    <input type="text" name="numero_os" value="{{numero_os}}" placeholder="Buscar OS..." class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
+                    <input type="text" name="responsavel" value="{{responsavel}}" placeholder="Buscar responsável..." class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <a href="/" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <i class="fas fa-redo"></i> Limpar filtros
+                </a>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+        </form>
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total OS</p>
+                        <h3 class="text-2xl font-bold text-gray-700">{{stats.total}}</h3>
+                    </div>
+                    <div class="p-3 rounded-full bg-indigo-100 text-indigo-600">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Em andamento</p>
+                        <h3 class="text-2xl font-bold text-yellow-600">{{stats.andamento}}</h3>
+                    </div>
+                    <div class="p-3 rounded-full text-yellow-600">
+                        <i class="fas fa-spinner"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Concluídas</p>
+                        <h3 class="text-2xl font-bold text-green-600">{{stats.concluida}}</h3>
+                    </div>
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Canceladas</p>
+                        <h3 class="text-2xl font-bold text-red-600">{{stats.cancelada}}</h3>
+                    </div>
+                    <div class="p-3 rounded-full bg-red-100 text-red-600">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Service Orders Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° OS</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de início</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsável</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for ordem in ordens %}
+                        <tr class="hover:bg-gray-50 fade-in">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ ordem['Número da OS'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ ordem['Cliente'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ ordem['Data de início'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ ordem['Responsável'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if 'Status' in ordem %}
+                                    {% set status = ordem['Status']|lower %}
+                                    {% if 'conclu' in status %}
+                                        <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 font-bold">Concluída</span>
+                                    {% elif 'andamento' in status %}
+                                        <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 font-bold">Em andamento</span>
+                                    {% elif 'cancel' in status %}
+                                        <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 font-bold">Cancelada</span>
+                                    {% else %}
+                                        <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{{ ordem['Status'] }}</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex gap-2">
+                                <button type="button" class="text-yellow-500 hover:text-yellow-700" title="Editar" onclick="console.log('Botão editar clicado'); abrirModalEditar('{{ ordem['Número da OS'] }}')"><i class="fas fa-pen"></i></button>
+                                <button type="button" class="text-red-500 hover:text-red-700" title="Deletar" onclick="confirmarDeletar('{{ ordem['Número da OS'] }}')"><i class="fas fa-trash"></i></button>
+                                <button type="button" onclick="toggleDetails(this)" class="text-indigo-600 hover:text-indigo-900 view-details ml-2" title="Ver detalhes"><i class="fas fa-eye"></i></button>
+                            </td>
+                        </tr>
+                        <tr class="hidden details-row">
+                            <td colspan="6" class="bg-gray-50 px-6 py-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h4 class="font-semibold text-indigo-700 mb-2 flex items-center gap-2"><i class="fas fa-info-circle"></i> Dados principais</h4>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><span class="font-semibold">N° OS:</span> {{ ordem['Número da OS'] }}</li>
+                                            <li><span class="font-semibold">Cliente:</span> {{ ordem['Cliente'] }}</li>
+                                            <li><span class="font-semibold">Responsável:</span> {{ ordem['Responsável'] }}</li>
+                                            <li><span class="font-semibold">Status:</span> {% set status = ordem['Status']|lower %}
+                                                {% if 'conclu' in status %}
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 font-bold">Concluída</span>
+                                                {% elif 'andamento' in status %}
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 font-bold">Em andamento</span>
+                                                {% elif 'cancel' in status %}
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 font-bold">Cancelada</span>
+                                                {% else %}
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{{ ordem['Status'] }}</span>
+                                                {% endif %}
+                                            </li>
+                                            <li><span class="font-semibold">Data de início:</span> {{ ordem['Data de início'] }}</li>
+                                            <li><span class="font-semibold">Previsão de entrega:</span> {{ ordem['Previsão de entrega'] }}</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-indigo-700 mb-2 flex items-center gap-2"><i class="fas fa-address-book"></i> Contato & Endereço</h4>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><span class="font-semibold">Telefone:</span> {{ ordem['Telefone'] }}</li>
+                                            <li><span class="font-semibold">Endereço:</span> {{ ordem['Endereço do cliente'] }}</li>
+                                        </ul>
+                                        <hr class="my-3">
+                                        <h4 class="font-semibold text-indigo-700 mb-2 flex items-center gap-2"><i class="fas fa-box"></i> Equipamento & Recebimento</h4>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><span class="font-semibold">Equipamento recebido:</span> {{ ordem['Equipamento recebido'] }}</li>
+                                            <li><span class="font-semibold">Obs. sobre recebimento:</span> {{ ordem['Observações sobre o recebimento'] }}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <hr class="my-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h4 class="font-semibold text-indigo-700 mb-2 flex items-center gap-2"><i class="fas fa-tools"></i> Problema</h4>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><span class="font-semibold">Descrição do problema/defeito:</span> {{ ordem['Descrição do problema ou defeito apresentado'] }}</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-indigo-700 mb-2 flex items-center gap-2"><i class="fas fa-sticky-note"></i> Observações</h4>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><span class="font-semibold">Observações internas:</span> {{ ordem['Observações internas'] }}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if ordens|length == 0 %}
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-gray-400">
+                                <i class="fas fa-file-alt text-6xl mb-4"></i>
+                                <div class="text-lg font-medium text-gray-900 mb-1">Nenhuma ordem de serviço encontrada</div>
+                                <div class="text-gray-500">Tente ajustar seus filtros de busca</div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    {% if tem_mais %}
+                    <tfoot>
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="mb-2 text-sm text-gray-600">
+                                Carregadas {{ total_mostrado }} de {{ total_os }} ordens de serviço
+                            </div>
+                            <form method="get">
+                                <input type="hidden" name="pagina" value="{{ proxima_pagina }}">
+                                <input type="hidden" name="mes" value="{{ mes }}">
+                                <input type="hidden" name="ano" value="{{ ano }}">
+                                <input type="hidden" name="cliente" value="{{ cliente }}">
+                                <input type="hidden" name="numero_os" value="{{ numero_os }}">
+                                <input type="hidden" name="responsavel" value="{{ responsavel }}">
+                                <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold flex items-center gap-2 mx-auto">
+                                    <i class="fas fa-plus"></i> Carregar mais 25 OS
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    </tfoot>
+                    {% else %}
+                    <tfoot>
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="text-sm text-gray-600">
+                                Todas as {{ total_os }} ordens de serviço foram carregadas
+                            </div>
+                        </td>
+                    </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Modais com Tailwind CSS -->
+    <div id="modalEditar" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <form id="formEditarOS">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h5 class="text-lg font-semibold text-gray-900"><i class="fas fa-pen-to-square text-yellow-500"></i> Editar Ordem de Serviço</h5>
+                    <button type="button" class="text-gray-400 hover:text-gray-600" onclick="fecharModal('modalEditar')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-6" id="modalEditarBody">
+                    <!-- Campos do formulário serão inseridos via JS -->
+                </div>
+                <div class="flex items-center justify-end gap-3 p-6 border-t">
+                    <button type="button" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300" onclick="fecharModal('modalEditar')">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modalDeletar" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="flex items-center justify-between p-6 border-b">
+                <h5 class="text-lg font-semibold text-gray-900"><i class="fas fa-trash text-red-500"></i> Confirmar Exclusão</h5>
+                <button type="button" class="text-gray-400 hover:text-gray-600" onclick="fecharModal('modalDeletar')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-700">Tem certeza que deseja excluir esta Ordem de Serviço?</p>
+            </div>
+            <div class="flex items-center justify-end gap-3 p-6 border-t">
+                <button type="button" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300" onclick="fecharModal('modalDeletar')">Cancelar</button>
+                <button type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" id="btnConfirmarDeletar">Excluir</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modalSucesso" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="flex items-center justify-between p-6 border-b">
+                <h5 class="text-lg font-semibold text-gray-900"><i class="fas fa-circle-check text-green-500"></i> Sucesso</h5>
+                <button type="button" class="text-gray-400 hover:text-gray-600" onclick="fecharModal('modalSucesso')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6" id="modalSucessoMsg">
+                Ordem de Serviço excluída com sucesso!
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    function toggleDetails(btn) {
+        const tr = btn.closest('tr');
+        const next = tr.nextElementSibling;
+        if (next && next.classList.contains('details-row')) {
+            next.classList.toggle('hidden');
+        }
+    }
+    
+    function fecharModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+    
+    function abrirModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+    }
+    
+    window.addEventListener('DOMContentLoaded', function() {
+        let numeroOSParaDeletar = null;
+        let lastCheckTime = 0;
+        
+        // Verificar mudanças no arquivo a cada 30 segundos
+        function verificarMudancas() {
+            fetch(`/verificar_mudancas?last_check=${lastCheckTime}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.mudou) {
+                    console.log('Mudanças detectadas:', data.mensagem);
+                    // Mostrar notificação
+                    mostrarNotificacao(data.mensagem);
+                    // Atualizar a página após 2 segundos
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                }
+                lastCheckTime = data.timestamp;
+            })
+            .catch(error => {
+                console.error('Erro ao verificar mudanças:', error);
+            });
+        }
+        
+        // Iniciar verificação periódica
+        setInterval(verificarMudancas, 10000); // 10 segundos
+        
+        function mostrarNotificacao(mensagem) {
+            // Criar notificação
+            const notificacao = document.createElement('div');
+            notificacao.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+            notificacao.innerHTML = `
+                <i class="fas fa-sync-alt"></i>
+                <span>${mensagem}</span>
+            `;
+            document.body.appendChild(notificacao);
+            
+            // Remover após 3 segundos
+            setTimeout(() => {
+                notificacao.remove();
+            }, 3000);
+        }
+        
+        window.confirmarDeletar = function(numeroOS) {
+            numeroOSParaDeletar = numeroOS;
+            abrirModal('modalDeletar');
+        }
+        
+        document.getElementById('btnConfirmarDeletar').onclick = function() {
+            fetch('/deletar_os', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numero_os: numeroOSParaDeletar })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    fecharModal('modalDeletar');
+                    document.getElementById('modalSucessoMsg').innerText = 'Ordem de Serviço excluída com sucesso!';
+                    abrirModal('modalSucesso');
+                    setTimeout(() => { location.reload(); }, 1200);
+                }
+            });
+        };
+        
+        window.abrirModalEditar = function(numeroOS) {
+            console.log('Função abrirModalEditar chamada com número:', numeroOS);
+            
+            // Buscar os dados da OS no backend
+            fetch(`/buscar_os/${numeroOS}`)
+            .then(response => response.json())
+            .then(ordem => {
+                console.log('Dados da OS recebidos:', ordem);
+                
+                try {
+                    let html = '';
+                    for(const [col, val] of Object.entries(ordem)) {
+                        console.log(`Processando coluna: ${col}, valor: ${val}`);
+                        if(col === 'Número da OS') {
+                            html += `<div class='mb-4'><label class='block text-sm font-medium text-gray-700 mb-1'>${col}</label><input class='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500' name='${col}' value='${val}' readonly></div>`;
+                        } else {
+                            html += `<div class='mb-4'><label class='block text-sm font-medium text-gray-700 mb-1'>${col}</label><input class='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500' name='${col}' value='${val ?? ''}'></div>`;
+                        }
+                    }
+                    
+                    const modalBody = document.getElementById('modalEditarBody');
+                    if (modalBody) {
+                        modalBody.innerHTML = html;
+                        console.log('HTML inserido no modal');
+                        abrirModal('modalEditar');
+                        console.log('Modal aberto');
+                    } else {
+                        console.error('Elemento modalEditarBody não encontrado');
+                    }
+                } catch (error) {
+                    console.error('Erro ao abrir modal de edição:', error);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar dados da OS:', error);
+            });
+        }
+        
+        document.getElementById('formEditarOS').onsubmit = function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const dados = {};
+            for(const el of form.elements) {
+                if(el.name) dados[el.name] = el.value;
+            }
+            fetch('/editar_os', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    fecharModal('modalEditar');
+                    document.getElementById('modalSucessoMsg').innerText = 'Ordem de Serviço editada com sucesso!';
+                    abrirModal('modalSucesso');
+                    setTimeout(() => { location.reload(); }, 1200);
+                }
+            });
+        };
+    });
+    </script>
+</body>
+</html> 
